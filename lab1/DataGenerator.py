@@ -50,10 +50,12 @@ def norm_dataset(mu, sigma, N):
 
 def nonlinear_dataset_5(N=1000):
     """
-    Генерирует двумерные данные варианта 5: вложенные эллипсы (внешний и внутренний класс).
+    Генерирует двумерные данные варианта 5: класс 0 обволакивает класс 1.
 
-    Класс 0 — точки в большой эллиптической области.
-    Класс 1 — точки в меньшей эллиптической области внутри первой (миндалевидная форма).
+    Класс 1 — вытянутый овал в нижнем левом углу (большая ось снизу-слева вверх-вправо).
+
+    Класс 0 — U-образная оболочка вокруг класса 1: внешний эллипс с «вырезом»
+    в нижнем левом углу (открытие U), так что класс 0 огибает овал сверху, справа и снизу.
 
     Параметры:
         N: число объектов в каждом классе
@@ -61,35 +63,77 @@ def nonlinear_dataset_5(N=1000):
     Возвращает:
         X, Y, class0, class1 — аналогично norm_dataset
     """
-    # Параметры эллипсов (полуоси). Внешний больше внутреннего.
-    a_outer, b_outer = 2.5, 1.8
-    a_inner, b_inner = 1.0, 0.6
-    center = (0.0, 0.0)
-    noise = 0.08
-
     rng = np.random.default_rng()
+    # Шум при генерации: добавляется к каждой точке. Больше — размытее границы.
+    noise = 0.04
 
-    # Класс 0: отбор точек внутри внешнего эллипса (rejection sampling)
-    class0_list = []
-    while len(class0_list) < N:
-        x = rng.uniform(-a_outer * 1.2, a_outer * 1.2)
-        y = rng.uniform(-b_outer * 1.2, b_outer * 1.2)
-        if (x - center[0]) ** 2 / a_outer**2 + (y - center[1]) ** 2 / b_outer**2 < 1:
-            x += rng.normal(0, noise)
-            y += rng.normal(0, noise)
-            class0_list.append([x, y])
-    class0 = np.array(class0_list)
+    # ========== Класс 1 (внутренний овал) ==========
+    # cx, cy — центр овала класса 1 на плоскости (X, Y). Сдвиг меняет положение овала.
+    cx, cy = 0.25, -0.3
+    # angle_deg — угол поворота овала в градусах (0 = горизонтально, 90 = вертикально).
+    # Оба класса используют один и тот же угол.
+    angle_deg = 28
+    angle_rad = np.deg2rad(angle_deg)
+    cos_a, sin_a = np.cos(angle_rad), np.sin(angle_rad)
 
-    # Класс 1: точки внутри внутреннего эллипса
+    def to_local(x, y, cx_=None, cy_=None):
+        """Перевод (x,y) в локальные координаты эллипса: u вдоль большой оси, v вдоль малой."""
+        if cx_ is None:
+            cx_, cy_ = cx, cy
+        u = (x - cx_) * cos_a + (y - cy_) * sin_a
+        v = -(x - cx_) * sin_a + (y - cy_) * cos_a
+        return u, v
+
+    def inside_ellipse(x, y, a, b, cx_=None, cy_=None):
+        if cx_ is None:
+            cx_, cy_ = cx, cy
+        u, v = to_local(x, y, cx_, cy_)
+        return (u**2 / a**2 + v**2 / b**2) < 1
+
+    # a1 — большая полуось овала класса 1 (длина). b1 — малая полуось (толщина).
+    # Меньше b1 при том же a1 — овал более сплюснутый (тоньше).
+    a1, b1 = 0.5, 0.14
     class1_list = []
     while len(class1_list) < N:
-        x = rng.uniform(-a_inner, a_inner)
-        y = rng.uniform(-b_inner, b_inner)
-        if (x - center[0]) ** 2 / a_inner**2 + (y - center[1]) ** 2 / b_inner**2 < 1:
+        x = rng.uniform(cx - a1 - 0.2, cx + a1 + 0.2)
+        y = rng.uniform(cy - a1 - 0.2, cy + a1 + 0.2)
+        if inside_ellipse(x, y, a1, b1):
             x += rng.normal(0, noise)
             y += rng.normal(0, noise)
             class1_list.append([x, y])
     class1 = np.array(class1_list)
+
+    # ========== Класс 0 (U-образная оболочка) ==========
+    # cx0, cy0 — центр оболочки. Задаётся сдвигом от центра класса 1 (cx, cy).
+    #   cx0 = cx + ... — сдвиг вправо (больше = оболочка правее).
+    #   cy0 = cy + ... — сдвиг вверх (больше = оболочка выше). Отрицательное — ниже.
+    cx0, cy0 = cx + 0.2, cy + 0.12
+    # a2, b2 — полуоси внешнего эллипса оболочки (её внешняя граница).
+    #   a2 — вдоль «длины» U, b2 — вдоль «высоты». Меньше b2 — U более сплюснутая.
+    a2, b2 = 1.2, 0.50
+    # a_inner_gap, b_inner_gap — полуоси внутренней границы оболочки (где заканчивается класс 0).
+    #   Больше этих значений — больший зазор между классом 0 и классом 1 (оболочка дальше от овала).
+    #   Меньше — оболочка ближе к овалу, зазор тоньше.
+    a_inner_gap, b_inner_gap = 0.5, 0.21
+    # u_cut — граница «выреза» U в локальных координатах оболочки (ось u вдоль большой оси).
+    #   Точки с u < u_cut отбрасываются → получается открытие U. Больше u_cut (например 0) — вырез шире,
+    #   оболочка короче слева. Меньше u_cut (например -0.5) — вырез уже, оболочка длиннее слева.
+    u_cut = -0.25
+
+    class0_list = []
+    while len(class0_list) < N:
+        x = rng.uniform(cx0 - a2 - 0.15, cx0 + a2 + 0.15)
+        y = rng.uniform(cy0 - b2 - 0.15, cy0 + b2 + 0.15)
+        u, v = to_local(x, y, cx0, cy0)
+        # Внутри внешнего эллипса, снаружи внутренней границы оболочки, и не в «вырезе» (u >= u_cut)
+        in_outer = inside_ellipse(x, y, a2, b2, cx0, cy0)
+        in_inner = inside_ellipse(x, y, a_inner_gap, b_inner_gap, cx0, cy0)
+        not_in_cut = u >= u_cut
+        if in_outer and not in_inner and not_in_cut:
+            x += rng.normal(0, noise)
+            y += rng.normal(0, noise)
+            class0_list.append([x, y])
+    class0 = np.array(class0_list)
 
     Y0 = np.zeros((N,), dtype=bool)
     Y1 = np.ones((N,), dtype=bool)
