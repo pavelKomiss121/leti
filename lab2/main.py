@@ -14,10 +14,16 @@ FIGURES_DIR.mkdir(exist_ok=True)
 try:
     import lab1.DataGenerator as dg
 except ImportError:
-    import DataGenerator as dg
+    # При запуске как python lab2/main.py корень проекта не в sys.path
+    import sys
+    _root = Path(__file__).resolve().parent.parent
+    if str(_root) not in sys.path:
+        sys.path.insert(0, str(_root))
+    import lab1.DataGenerator as dg
 
 Nvar = 5  # номер варианта (для random_state)
 N = 1000
+random_state = 42
 
 
 def sensitivity_specificity(Y_true, Y_pred):
@@ -42,12 +48,11 @@ def sensitivity_specificity(Y_true, Y_pred):
 
 def split_70_30(X, Y):
     """Разбиение на обучающую (70%) и тестовую (30%) выборки."""
-    n = len(Y)
-    train_count = round(0.7 * n)
-    return (
-        X[:train_count], Y[:train_count],
-        X[train_count:], Y[train_count:]
-    )
+    np.random.seed(random_state)
+    idx = np.random.permutation(len(Y))
+    X, Y = X[idx], Y[idx]
+    train_count = round(0.7 * len(Y))
+    return X[:train_count], Y[:train_count], X[train_count:], Y[train_count:]
 
 
 def run_experiment(Xtrain, Ytrain, Xtest, Ytest, suffix, title_suffix):

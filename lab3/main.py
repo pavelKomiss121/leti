@@ -16,7 +16,12 @@ FIGURES_DIR.mkdir(exist_ok=True)
 try:
     import lab1.DataGenerator as dg
 except ImportError:
-    import DataGenerator as dg
+    import sys
+    from pathlib import Path as _Path
+    _root = _Path(__file__).resolve().parent.parent
+    if str(_root) not in sys.path:
+        sys.path.insert(0, str(_root))
+    import lab1.DataGenerator as dg
 
 try:
     import scikitplot as skplt
@@ -209,10 +214,11 @@ print("\n--- Подбор n_estimators леса (от 1 до 300, шаг 10), в
 best_n = 1
 best_auc = 0.0
 for n_est in range(1, 301, 10):
-    rf = RandomForestClassifier(n_estimators=n_est, random_state=0).fit(Xtrain_A, Ytrain_A)
-    proba = rf.predict_proba(Xtest_A)[:, 1]
-    Ytest_A_int = (np.asarray(Ytest_A) != 0).astype(int)
-    auc = roc_auc_score(Ytest_A_int, proba)
+    rf = RandomForestClassifier(n_estimators=n_est, random_state=0).fit(Xtrain_B, Ytrain_B)
+    proba = rf.predict_proba(Xtest_B)[:, 1]
+    Ytest_B_int = (np.asarray(Ytest_B) != 0).astype(int)
+    auc = roc_auc_score(Ytest_B_int, proba)
+    print(f"  n_estimators={n_est}: AUC на тесте={best_auc:.4f}")
     if auc > best_auc:
         best_auc = auc
         best_n = n_est
