@@ -1,26 +1,34 @@
 """
 Курсовая работа: статистический анализ данных «Rain in Australia».
-Параметры: n = Humidity3pm, m = Rainfall. Целевая: RainTomorrow.
+Целевая: RainTomorrow.
 
-Точка входа — только запуск пайплайна (данные → проверка → очистка → вывод).
-Вся логика обработки в data.py, отрисовка и анализ — в отдельных модулях.
+Пайплайн:
+  1) Задание 1 — загрузка, проверка, очистка данных.
+  2) Задание 3 — корреляционный анализ (все числовые признаки).
+  3) Отбор признаков — топ по |корреляции| с целевой (или из config).
+  4) Задание 2 — визуализация и описательная статистика выбранных признаков.
+  5) Задание 4 — регрессионный анализ выбранных признаков.
+  6) Задание 6 — ANOVA для выбранных признаков.
+  7) Задание 7 — классификаторы (дерево, лес, MLP, логистика) на выбранных признаках.
 
 Запуск из корня leti: python -m course_work.main
 """
-from course_work.data import (
+from course_work.preprocessing import (
     load_raw_data,
     check_missing_duplicates_anomalies,
     clean_data,
     print_class_balance,
 )
-from course_work.viz import run_task2
-from course_work.correlation import run_task3
-from course_work.regression import run_task4
-from course_work.anova import run_task6
-from course_work.classifier import run_task7
+from course_work.analysis.correlation import run_task3
+from course_work.analysis.feature_selection import select_features
+from course_work.analysis.visualization import run_task2
+from course_work.analysis.regression import run_task4
+from course_work.analysis.anova import run_task6
+from course_work.classifiers import run_task7
 
 
 def main():
+    # --- Задание 1: первичная обработка ---
     print("=" * 60)
     print("Курсовая. Задание 1: первичная обработка данных")
     print("=" * 60)
@@ -39,11 +47,23 @@ def main():
     print("\nОбзор числовых признаков (describe):")
     print(df_clean.describe().to_string())
 
-    run_task2(df_clean)
+    # --- Задание 3: корреляционный анализ (все числовые) ---
     run_task3(df_clean)
-    run_task4(df_clean)
-    run_task6(df_clean)
-    run_task7(df_clean)
+
+    # --- Отбор признаков на основе корреляции ---
+    features = select_features(df_clean)
+
+    # --- Задание 2: визуализация выбранных признаков ---
+    run_task2(df_clean, features)
+
+    # --- Задание 4: регрессия выбранных признаков ---
+    run_task4(df_clean, features)
+
+    # --- Задание 6: ANOVA для выбранных признаков ---
+    run_task6(df_clean, features)
+
+    # --- Задание 7: классификаторы на выбранных признаках ---
+    run_task7(df_clean, features)
 
     return df_clean
 

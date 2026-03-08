@@ -1,20 +1,12 @@
 """
 Корреляционный анализ (Задание 3).
-Один файл — одна задача: тепловая карта, Пирсон/Спирмен, мультиколлинеарность.
 """
-from pathlib import Path
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
 
-FIGURES_DIR = Path(__file__).resolve().parent / "figures"
-FIGURES_DIR.mkdir(exist_ok=True)
-
-COL_N = "Humidity3pm"
-COL_M = "Rainfall"
-COL_TARGET = "RainTomorrow"
+from course_work.config import FIGURES_DIR, COL_TARGET
 
 
 def _get_numeric_df(df: pd.DataFrame) -> pd.DataFrame:
@@ -51,7 +43,7 @@ def plot_correlation_heatmap(df: pd.DataFrame, method: str = "pearson") -> None:
 
 
 def print_correlation_coefficients(df: pd.DataFrame) -> None:
-    """Коэффициенты Пирсона и Спирмена: Пирсон для близких к нормальным, Спирмен для скошенных (Rainfall)."""
+    """Коэффициенты Пирсона и Спирмена."""
     num_df = _get_numeric_df(df)
 
     print("\n--- Корреляция Пирсона (числовые признаки) ---")
@@ -62,14 +54,12 @@ def print_correlation_coefficients(df: pd.DataFrame) -> None:
     spearman = num_df.corr(method="spearman")
     print(spearman.round(3).to_string())
 
-    # Ключевые пары: n, m и целевая
     if COL_TARGET in num_df.columns:
-        print(f"\n--- Связь с целевой {COL_TARGET} (1=Yes) ---")
-        for col in [COL_N, COL_M]:
-            if col in num_df.columns:
-                p = pearson.loc[col, COL_TARGET]
-                s = spearman.loc[col, COL_TARGET]
-                print(f"  {col}: Пирсон = {p:.3f}, Спирмен = {s:.3f}")
+        print(f"\n--- Связь всех числовых признаков с целевой {COL_TARGET} (1=Yes) ---")
+        corr_target = pearson[COL_TARGET].drop(COL_TARGET).abs().sort_values(ascending=False)
+        for col, r in corr_target.items():
+            s = spearman.loc[col, COL_TARGET]
+            print(f"  {col:20s}  Пирсон = {pearson.loc[col, COL_TARGET]:.3f}, Спирмен = {s:.3f}")
 
 
 def print_multicollinearity(df: pd.DataFrame, threshold: float = 0.8) -> None:
